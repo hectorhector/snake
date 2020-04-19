@@ -27,7 +27,6 @@ uint8_t apple[BOARD_WIDTH][BOARD_HEIGHT] = {0};
 
 uint8_t snake_head_x, snake_head_y = 0;
 uint8_t snake_tail_x, snake_tail_y = 0;
-uint8_t apple_x, apple_y = 0;
 
 enum e_snake_dir
 {
@@ -97,14 +96,19 @@ void snake_close()
 
 void snake_new_apple()
 {
-    do
-    {
-        apple_x = rand() % BOARD_WIDTH;
-        apple_y = rand() % BOARD_HEIGHT;
-    }
-    while(snake[apple_x][apple_y]);
+    uint8_t *snake_p = (uint8_t *)snake;
+    uint8_t *apple_p = (uint8_t *)apple;
 
-    apple[apple_x][apple_y] = 1;
+    //Choose a random cell
+    uint32_t new_apple = rand() % (BOARD_WIDTH * BOARD_HEIGHT);
+
+    while(snake_p[new_apple] || apple_p[new_apple])
+    {
+        new_apple++;
+        if(new_apple >= BOARD_WIDTH * BOARD_HEIGHT)
+            new_apple = 0;
+    }
+    apple_p[new_apple] = 1;
 }
 
 int main( int argc, char* args[] )
@@ -242,12 +246,11 @@ int main( int argc, char* args[] )
             //The actual value doens't matter since it will get written with the snake direction next frame.
             snake[snake_head_x][snake_head_y] = snake_dir;
 
-            if(snake_head_x == apple_x && snake_head_y == apple_y)
+            if(apple[snake_head_x][snake_head_y])
             {
                 //Ate the apple, delete it and get a new one
-                apple[apple_x][apple_y] = 0;
+                apple[snake_head_x][snake_head_y] = 0;
                 snake_new_apple();
-                apple[apple_x][apple_y] = 1;
                 points++;
             }
             else
@@ -299,7 +302,7 @@ int main( int argc, char* args[] )
             SDL_RenderPresent( gRenderer );
 
             //Speep up game for every apple
-            uint32_t  delay = 150;
+            int delay = 150;
             if(points * 2 > delay)
                 delay = 0;
             else
