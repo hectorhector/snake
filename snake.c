@@ -1,6 +1,8 @@
 #include <SDL2/SDL.h>
-#include <stdlib.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_image.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
 
@@ -17,10 +19,20 @@
 bool snake_init();
 void snake_close();
 
+void snake_reset();
 void snake_new_apple();
+
+//utility text funtion
+SDL_Texture* make_text_texture(TTF_Font *font, char *text, SDL_Color *color);
 
 SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
+
+//score text
+TTF_Font *gFont = NULL;
+SDL_Texture* g_score_texture = NULL;
+
+uint32_t points = 0;
 
 uint8_t snake[BOARD_WIDTH][BOARD_HEIGHT] = {0};
 uint8_t apple[BOARD_WIDTH][BOARD_HEIGHT] = {0};
@@ -39,61 +51,116 @@ enum e_snake_dir snake_dir = right;
 
 bool snake_init()
 {
-	//Initialization flag
-	bool success = true;
+    //Initialization flag
+    bool success = true;
 
-	//Initialize SDL
-	if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
-	{
-		printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
-		success = false;
-	}
-	else
-	{
-		//Set texture filtering to linear
-		if( !SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) )
-		{
-			printf( "Warning: Linear texture filtering not enabled!" );
-		}
+    //Initialize SDL
+    if( SDL_Init( SDL_INIT_VIDEO ) < 0 )
+    {
+        printf( "SDL could not initialize! SDL Error: %s\n", SDL_GetError() );
+        success = false;
+    }
+    else
+    {
+        //Set texture filtering to linear
+        if( !SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "1" ) )
+        {
+            printf( "Warning: Linear texture filtering not enabled!" );
+        }
 
-		//Create window
-		gWindow = SDL_CreateWindow( "SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
-		if( gWindow == NULL )
-		{
-			printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
-			success = false;
-		}
-		else
-		{
-			//Create renderer for window
-			gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
-			if( gRenderer == NULL )
-			{
-				printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
-				success = false;
-			}
-			else
-			{
-				//Initialize renderer color
-				SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-			}
-		}
-	}
+        //Create window
+        gWindow = SDL_CreateWindow( "Snake", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN );
+        if( gWindow == NULL )
+        {
+            printf( "Window could not be created! SDL Error: %s\n", SDL_GetError() );
+            success = false;
+        }
+        else
+        {
+            //Create renderer for window
+            gRenderer = SDL_CreateRenderer( gWindow, -1, SDL_RENDERER_ACCELERATED );
+            if( gRenderer == NULL )
+            {
+                printf( "Renderer could not be created! SDL Error: %s\n", SDL_GetError() );
+                success = false;
+            }
+            else
+            {
+                //Initialize renderer color
+                SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
+            }
+        }
+    } 
+    //Initialize SDL_ttf
+    if( TTF_Init() == -1 )
+    {
+        printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
+        success = false;
+    }
+    else
+    {
+        gFont = TTF_OpenFont( "DejaVuSansMono.ttf", SCREEN_HEIGHT);
+        if( gFont == NULL )
+        {
+            printf( "Failed to load font: SDL_ttf Error: %s\n", TTF_GetError() );
+            success = false;
+        }
+    }
 
     return success;
 }
 
 void snake_close()
 {
-	//Destroy window	
-	SDL_DestroyRenderer( gRenderer );
-	SDL_DestroyWindow( gWindow );
-	gWindow = NULL;
-	gRenderer = NULL;
-
-	SDL_Quit();
+    if(gRenderer)
+        SDL_DestroyRenderer(gRenderer);
+    if(gWindow)
+        SDL_DestroyWindow(gWindow);
+    if(gFont)
+        TTF_CloseFont(gFont);
+    if(g_score_texture)
+        SDL_DestroyTexture(g_score_texture);
+    SDL_Quit();
 }
 
+SDL_Texture* make_text_texture(TTF_Font *font, char *text, SDL_Color *color)
+{
+    SDL_Surface* surface = TTF_RenderText_Solid( font, text, *color);
+    if( surface == NULL )
+    {
+        printf( "Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError() );
+        return NULL;
+    }
+
+    //Create texture from surface pixels
+    SDL_Texture *texture = SDL_CreateTextureFromSurface( gRenderer, surface);
+    if( texture == NULL )
+    {
+        printf( "Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError() );
+        return NULL;
+    }
+    //Get rid of old surface
+    SDL_FreeSurface(surface);
+
+    return texture;
+}
+
+void snake_reset()
+{
+    points = 0;
+
+    memset(snake, 0, BOARD_WIDTH * BOARD_HEIGHT);
+    memset(apple, 0, BOARD_WIDTH * BOARD_HEIGHT);
+
+    snake_head_x = 0;
+    snake_head_y = 0;
+    snake_tail_x = 0;
+    snake_tail_y = 0;
+
+    snake_dir = right;
+
+    snake_new_apple();
+}
 void snake_new_apple()
 {
     uint8_t *snake_p = (uint8_t *)snake;
@@ -113,15 +180,15 @@ void snake_new_apple()
 
 int main( int argc, char* args[] )
 {
-    uint32_t points = 0;
 
-	//Start up SDL and create window
-	if( !snake_init() )
-	{
-		printf( "Failed to initialize!\n" );
-	}
-	else
-	{
+    //Start up SDL and create window
+    if( !snake_init() )
+    {
+        printf( "Failed to initialize!\n" );
+        return 1;
+    }
+    else
+    {
         bool quit = false;
         bool game_over = false;
 
@@ -185,6 +252,10 @@ int main( int argc, char* args[] )
                                 snake_dir = right;
                                 break;
                             }
+                        case SDLK_SPACE:
+                            snake_reset();
+                            game_over = false;
+                            break;
                         default:
                             continue;
                     }
@@ -195,8 +266,14 @@ int main( int argc, char* args[] )
 
             if(game_over)
             {
-                SDL_SetRenderDrawColor( gRenderer, 0x00, 0x00, 0xFF, 0xFF );
-                SDL_RenderClear( gRenderer );
+                SDL_Color score_color={0,0,0};
+                char score[256];
+                sprintf(score, "%d", points);
+                SDL_Texture *t = make_text_texture(gFont, score, &score_color);
+
+                SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
+                SDL_RenderClear(gRenderer);
+                SDL_RenderCopy(gRenderer, t, NULL, NULL);
                 SDL_RenderPresent( gRenderer );
                 SDL_Delay(200);
                 continue;
@@ -309,10 +386,10 @@ int main( int argc, char* args[] )
                 delay -= 2 * points;
             SDL_Delay(delay);
         }
-	}
+    }
 
-	//Free resources and close SDL
-	snake_close();
+    //Free resources and close SDL
+    snake_close();
 
-	return 0;
+    return 0;
 }
