@@ -33,7 +33,7 @@ WASMCC = emcc
 EMCC_SETTINGS = -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_TTF=2
 
 #Virtual File flags
-VIRTUAL_FS = --preload-file asset_dir/
+VIRTUAL_FS = --shell-file ./shell_minimal.html --preload-file asset_dir/
 
 #HTML_NAME specifies the name of our web files
 HTML_NAME = snake.html
