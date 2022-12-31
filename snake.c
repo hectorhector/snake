@@ -35,6 +35,7 @@ TTF_Font *gFont = NULL;
 SDL_Texture* g_score_texture = NULL;
 
 bool quit = false;
+bool game_over = false;
 
 uint32_t points = 0;
 
@@ -182,198 +183,208 @@ void snake_new_apple()
     apple_p[new_apple] = 1;
 }
 
-void snake_loop()
+void move_snake()
 {
-    static bool game_over = false;
+    // Don't do anything if we are in game over state
+    if(game_over)
+        return;
 
-    do
+    //Before we move, save the direction of where we are going in this grid square
+    snake[snake_head_x][snake_head_y] = snake_dir;
+
+    //Move to the next grid square
+    switch(snake_dir)
     {
-        //Only allow one valid key press per frame. 
-        SDL_Event e;
-        while(SDL_PollEvent(&e) != 0)
-        {
-            //User requests quit
-            if(e.type == SDL_QUIT)
-            {
-                quit = true;
-            }
-            //User presses a key
-            else if(e.type == SDL_KEYDOWN)
-            {
-                //As soon as you get one, stop processing events and use the key for the next frame.
-                switch(e.key.keysym.sym)
-                {
-                    case SDLK_UP:
-                        if(snake_dir == up || snake_dir == down)
-                            continue;
-                        else
-                        {
-                            snake_dir = up;
-                            break;
-                        }
+        case up:
+            if(snake_head_y != 0)
+                snake_head_y--;
+            else
+                game_over = true;
+            break;
 
-                    case SDLK_DOWN:
-                        if(snake_dir == up || snake_dir == down)
-                            continue;
-                        else
-                        {
-                            snake_dir = down;
-                            break;
-                        }
+        case down:
+            if(snake_head_y != BOARD_HEIGHT-1)
+                snake_head_y++;
+            else
+                game_over = true;
+            break;
 
-                    case SDLK_LEFT:
-                        if(snake_dir == left || snake_dir == right)
-                            continue;
-                        else
-                        {
-                            snake_dir = left;
-                            break;
-                        }
+        case left:
+            if(snake_head_x != 0)
+                snake_head_x--;
+            else
+                game_over = true;
+            break;
 
-                    case SDLK_RIGHT:
-                        if(snake_dir == left || snake_dir == right)
-                            continue;
-                        else
-                        {
-                            snake_dir = right;
-                            break;
-                        }
-                    case SDLK_SPACE:
-                        snake_reset();
-                        game_over = false;
-                        break;
-                    default:
-                        continue;
-                }
-                // Got a valid key press, use it this frame
-                break;
-            }
-        }
+        case right:
+            if(snake_head_x != BOARD_WIDTH-1)
+                snake_head_x++;
+            else
+                game_over = true;
+            break;
+    }
 
-        if(game_over)
-        {
-            SDL_Color score_color={0,0,0};
-            char score[256];
-            sprintf(score, "%d", points);
-            SDL_Texture *score_text = make_text_texture(gFont, score, &score_color);
+    if(snake[snake_head_x][snake_head_y])
+    {
+        game_over = true;
+    }
 
-            SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-            SDL_RenderClear(gRenderer);
-            SDL_RenderCopy(gRenderer, score_text, NULL, NULL);
-            SDL_RenderPresent(gRenderer);
-            SDL_Delay(200);
-            continue;
-        }
+    if(game_over)
+        return;
 
-        //Before we move, save the direction of where we are going in this grid square
-        snake[snake_head_x][snake_head_y] = snake_dir;
+    //Set the new snake head location with a non-zero value so it get's drawn.
+    //The actual value doens't matter since it will get written with the snake direction next frame.
+    snake[snake_head_x][snake_head_y] = snake_dir;
 
-        //Move to the next grid square
-        switch(snake_dir)
+    if(apple[snake_head_x][snake_head_y])
+    {
+        //Ate the apple, delete it and get a new one
+        apple[snake_head_x][snake_head_y] = 0;
+        snake_new_apple();
+        points++;
+    }
+    else
+    {
+        //Erase old tail and get the new one
+        uint8_t snake_tail_dir = snake[snake_tail_x][snake_tail_y];
+        snake[snake_tail_x][snake_tail_y] = 0;
+        switch(snake_tail_dir)
         {
             case up:
-                if(snake_head_y != 0)
-                    snake_head_y--;
-                else
-                    game_over = true;
+                snake_tail_y--;
                 break;
             case down:
-                if(snake_head_y != BOARD_HEIGHT-1)
-                    snake_head_y++;
-                else
-                    game_over = true;
+                snake_tail_y++;
                 break;
             case left:
-                if(snake_head_x != 0)
-                    snake_head_x--;
-                else
-                    game_over = true;
+                snake_tail_x--;
                 break;
             case right:
-                if(snake_head_x != BOARD_WIDTH-1)
-                    snake_head_x++;
-                else
-                    game_over = true;
+                snake_tail_x++;
                 break;
         }
-        if(snake[snake_head_x][snake_head_y])
-        {
-            game_over = true;
-        }
-        if(game_over)
-        {
-            continue;
-        }
-
-        //Set the new snake head location with a non-zero value so it get's drawn.
-        //The actual value doens't matter since it will get written with the snake direction next frame.
-        snake[snake_head_x][snake_head_y] = snake_dir;
-
-        if(apple[snake_head_x][snake_head_y])
-        {
-            //Ate the apple, delete it and get a new one
-            apple[snake_head_x][snake_head_y] = 0;
-            snake_new_apple();
-            points++;
-        }
-        else
-        {
-            //Erase old tail and get the new one
-            uint8_t snake_tail_dir = snake[snake_tail_x][snake_tail_y];
-            snake[snake_tail_x][snake_tail_y] = 0;
-            switch(snake_tail_dir)
-            {
-                case up:
-                    snake_tail_y--;
-                    break;
-                case down:
-                    snake_tail_y++;
-                    break;
-                case left:
-                    snake_tail_x--;
-                    break;
-                case right:
-                    snake_tail_x++;
-                    break;
-            }
-        }
-
-        // Clear screen before drawing the new one
-        SDL_SetRenderDrawColor(gRenderer, 0xDD, 0xDD, 0xDD, 0xDD);
-        SDL_RenderClear(gRenderer);
-
-        //Draw the snake
-        for(int i=0; i<(SCREEN_WIDTH/SQUARE_SIZE); ++i)
-        {
-            for(int j=0; j<(SCREEN_HEIGHT/SQUARE_SIZE); ++j)
-            {
-                if(snake[i][j])
-                {
-                    SDL_Rect fillRect = {i*SQUARE_SIZE, j*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE}; 
-                    SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);		
-                    SDL_RenderFillRect(gRenderer, &fillRect);
-                }
-                if(apple[i][j])
-                {
-                    SDL_Rect fillRect = {i*SQUARE_SIZE, j*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE}; 
-                    SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);		
-                    SDL_RenderFillRect(gRenderer, &fillRect);
-                }
-            }
-        }
-
-        //Update screen
-        SDL_RenderPresent(gRenderer);
-
-        //Speep up game for every apple
-        int delay = 150;
-        if(points * 2 > delay)
-            delay = 0;
-        else
-            delay -= 2 * points;
-        SDL_Delay(delay);
     }
-    while(0);
+}
+
+void snake_loop()
+{
+    bool moved = false;
+
+    //Only allow one valid key press per frame. 
+    SDL_Event e;
+    while(SDL_PollEvent(&e) != 0)
+    {
+        //User requests quit
+        if(e.type == SDL_QUIT)
+        {
+            quit = true;
+        }
+        //User presses a key
+        else if(e.type == SDL_KEYDOWN)
+        {
+            //For more responseive gameplay, move the snake whenever the player inputs a valid move
+            switch(e.key.keysym.sym)
+            {
+                case SDLK_UP:
+                    if((snake_dir != up) && (snake_dir != down))
+                    {
+                        snake_dir = up;
+                        move_snake();
+                        moved = true;
+                    }
+                    break;
+
+                case SDLK_DOWN:
+                    if((snake_dir != up) && (snake_dir != down))
+                    {
+                        snake_dir = down;
+                        move_snake();
+                        moved = true;
+                    }
+                    break;
+
+                case SDLK_LEFT:
+                    if((snake_dir != left) && (snake_dir != right))
+                    {
+                        snake_dir = left;
+                        move_snake();
+                        moved = true;
+                    }
+                    break;
+
+                case SDLK_RIGHT:
+                    if((snake_dir != left) && (snake_dir != right))
+                    {
+                        snake_dir = right;
+                        move_snake();
+                        moved = true;
+                    }
+                    break;
+
+                case SDLK_SPACE:
+                    snake_reset();
+                    game_over = false;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    //If the player hasn't made a move, advance the snake for them 
+    if(moved == false)
+        move_snake();
+
+    if(game_over)
+    {
+        SDL_Color score_color={0,0,0};
+        char score[256];
+        sprintf(score, "%d", points);
+        SDL_Texture *score_text = make_text_texture(gFont, score, &score_color);
+
+        SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+        SDL_RenderClear(gRenderer);
+        SDL_RenderCopy(gRenderer, score_text, NULL, NULL);
+        SDL_RenderPresent(gRenderer);
+        SDL_Delay(200);
+        return;
+    }
+
+    // Clear screen before drawing the new one
+    SDL_SetRenderDrawColor(gRenderer, 0xAA, 0xAA, 0xAA, 0xAA);
+    SDL_RenderClear(gRenderer);
+
+    //Draw the snake
+    for(int i=0; i<(SCREEN_WIDTH/SQUARE_SIZE); ++i)
+    {
+        for(int j=0; j<(SCREEN_HEIGHT/SQUARE_SIZE); ++j)
+        {
+            if(snake[i][j])
+            {
+                SDL_Rect fillRect = {i*SQUARE_SIZE, j*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE}; 
+                SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);		
+                SDL_RenderFillRect(gRenderer, &fillRect);
+            }
+            if(apple[i][j])
+            {
+                SDL_Rect fillRect = {i*SQUARE_SIZE, j*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE}; 
+                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);		
+                SDL_RenderFillRect(gRenderer, &fillRect);
+            }
+        }
+    }
+
+    //Update screen
+    SDL_RenderPresent(gRenderer);
+
+#if __EMSCRIPTEN__
+    //no delay on webasm
+#else
+    //Speep up game for every apple
+    uint32_t delay = 125;
+    SDL_Delay(delay);
+#endif
 }
 
 int main(int argc, char* args[])
@@ -389,7 +400,7 @@ int main(int argc, char* args[])
     snake_new_apple();
 
 #if __EMSCRIPTEN__
-    emscripten_set_main_loop(snake_loop, 0, 1);
+    emscripten_set_main_loop(snake_loop, 10, 1);
 #else
     while(quit == false)
     {
