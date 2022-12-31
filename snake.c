@@ -12,8 +12,8 @@
 
 //Screen dimension constants
 #define SCREEN_WIDTH  640
-#define SCREEN_HEIGHT 480
-#define SQUARE_SIZE 32
+#define SCREEN_HEIGHT 640
+#define SQUARE_SIZE 64
 #define BOARD_WIDTH  (SCREEN_WIDTH  / SQUARE_SIZE) // 640/32 = 20
 #define BOARD_HEIGHT (SCREEN_HEIGHT / SQUARE_SIZE) // 480/32 = 15 
 
@@ -400,7 +400,7 @@ int main(int argc, char* args[])
     snake_new_apple();
 
 #if __EMSCRIPTEN__
-    emscripten_set_main_loop(snake_loop, 10, 1);
+    emscripten_set_main_loop(snake_loop, 8, 1);
 #else
     while(quit == false)
     {
