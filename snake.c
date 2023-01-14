@@ -14,8 +14,8 @@
 #define SCREEN_WIDTH  640
 #define SCREEN_HEIGHT 640
 #define SQUARE_SIZE 64
-#define BOARD_WIDTH  (SCREEN_WIDTH  / SQUARE_SIZE) // 640/32 = 20
-#define BOARD_HEIGHT (SCREEN_HEIGHT / SQUARE_SIZE) // 480/32 = 15 
+#define BOARD_WIDTH  (SCREEN_WIDTH  / SQUARE_SIZE)
+#define BOARD_HEIGHT (SCREEN_HEIGHT / SQUARE_SIZE)
 
 // SDL init/quit
 bool snake_init();
@@ -36,6 +36,7 @@ SDL_Texture* g_score_texture = NULL;
 
 bool quit = false;
 bool game_over = false;
+bool win = false;
 
 uint32_t points = 0;
 
@@ -152,6 +153,8 @@ SDL_Texture* make_text_texture(TTF_Font *font, char *text, SDL_Color *color)
 
 void snake_reset()
 {
+    win = false;
+    game_over = false;
     points = 0;
 
     memset(snake, 0, BOARD_WIDTH * BOARD_HEIGHT);
@@ -166,6 +169,7 @@ void snake_reset()
 
     snake_new_apple();
 }
+
 void snake_new_apple()
 {
     uint8_t *snake_p = (uint8_t *)snake;
@@ -173,13 +177,24 @@ void snake_new_apple()
 
     //Choose a random cell
     uint32_t new_apple = rand() % (BOARD_WIDTH * BOARD_HEIGHT);
+    uint32_t first_new_apple = new_apple;
 
+    // Check if the new apple is in a snake or existing apple
     while(snake_p[new_apple] || apple_p[new_apple])
     {
         new_apple++;
         if(new_apple >= BOARD_WIDTH * BOARD_HEIGHT)
             new_apple = 0;
+
+        // If no valid apple placements exist, player has won the game
+        if(new_apple == first_new_apple)
+        {
+            game_over = true;
+            win = true;
+            return;
+        }
     }
+    // Found a valid apple placement
     apple_p[new_apple] = 1;
 }
 
@@ -239,9 +254,9 @@ void move_snake()
     if(apple[snake_head_x][snake_head_y])
     {
         //Ate the apple, delete it and get a new one
+        points++;
         apple[snake_head_x][snake_head_y] = 0;
         snake_new_apple();
-        points++;
     }
     else
     {
@@ -323,7 +338,6 @@ void snake_loop()
 
                 case SDLK_SPACE:
                     snake_reset();
-                    game_over = false;
                     break;
 
                 default:
@@ -340,7 +354,12 @@ void snake_loop()
     {
         SDL_Color score_color={0,0,0};
         char score[256];
-        sprintf(score, "%d", points);
+
+        if(win == true)
+            sprintf(score, "%s", "win!");
+        else
+            sprintf(score, "%d", points);
+
         SDL_Texture *score_text = make_text_texture(gFont, score, &score_color);
 
         SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
